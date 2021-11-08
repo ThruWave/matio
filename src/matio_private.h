@@ -76,6 +76,7 @@ struct _mat_t
     size_t num_datasets; /**< Number of datasets in the file */
 #if defined(MAT73) && MAT73
     hid_t refs_id; /**< Id of the /#refs# group in HDF5 */
+    void *fileimage;    /**< Pointer to file image in memory */
 #endif
     char **dir; /**< Names of the datasets in the file */
 };

@@ -436,6 +436,62 @@ Mat_CreateVer(const char *matname, const char *hdr_str, enum mat_ft mat_file_ver
     return mat;
 }
 
+/** @brief Creates a new Matlab MAT file (in-memory)
+ *
+ * Tries to create a new Matlab MAT file with the given name and optional
+ * header string.  If no header string is given, the default string
+ * is used containing the software, version, and date in it.  If a header
+ * string is given, at most the first 116 characters is written to the file.
+ * The given header string need not be the full 116 characters, but MUST be
+ * NULL terminated.
+ * @ingroup MAT
+ * @param matname Name of MAT file to create
+ * @param hdr_str Optional header string, NULL to use default
+ * @param mat_file_ver MAT file version to create
+ * @return A pointer to the MAT file or NULL if it failed.  This is not a
+ * simple FILE * and should not be used as one.
+ */
+mat_t *
+Mat_CreateMem(const char *matname, const char *hdr_str, enum mat_ft mat_file_ver)
+{
+    mat_t *mat;
+
+    switch ( mat_file_ver ) {
+        case MAT_FT_MAT4:
+            mat = NULL; // only mat73
+            break;
+        case MAT_FT_MAT5:
+            mat = NULL; // only mat73
+            break;
+        case MAT_FT_MAT73:
+#if defined(MAT73) && MAT73
+            mat = Mat_CreateMem73(matname, hdr_str);
+#else
+            mat = NULL;
+#endif
+            break;
+        default:
+            mat = NULL;
+            break;
+    }
+
+    return mat;
+}
+
+/** @brief Gets the file image for the given MAT file
+ *
+ * Gets the file image for the given MAT file
+ * @ingroup MAT
+ * @param mat Pointer to the MAT file
+ * @return Pointer to file image
+ */
+const
+void *Mat_GetMemImage(mat_t *mat)
+{
+    if (mat->version != MAT_FT_MAT73) return NULL;
+    return Mat_GetMemImage73(mat);
+}
+
 /** @brief Opens an existing Matlab MAT file
  *
  * Tries to open a Matlab MAT file with the given name

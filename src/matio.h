@@ -291,6 +291,8 @@ EXTERN const char *Mat_GetHeader(mat_t *mat);
 EXTERN enum mat_ft Mat_GetVersion(mat_t *mat);
 EXTERN char **Mat_GetDir(mat_t *mat, size_t *n);
 EXTERN int Mat_Rewind(mat_t *mat);
+EXTERN mat_t *Mat_CreateVerMem(const char *matname, const char *hdr_str, enum mat_ft mat_file_ver);
+EXTERN const void *Mat_GetMemImage(mat_t *mat);
 
 /* MAT variable functions */
 EXTERN matvar_t *Mat_VarCalloc(void);

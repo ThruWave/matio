@@ -2574,6 +2574,7 @@ Mat_Create73(const char *matname, const char *hdr_str)
     mat->next_index = 0;
     mat->num_datasets = 0;
     mat->refs_id = -1;
+    mat->fileimage = NULL;
     mat->dir = NULL;
 
     t = time(NULL);
@@ -2617,6 +2618,157 @@ Mat_Create73(const char *matname, const char *hdr_str)
 }
 
 /** @if mat_devman
+ * @brief Creates a new Matlab MAT version 7.3 file (in memory)
+ *
+ * Tries to create a new Matlab MAT file with the given name and optional
+ * header string.  If no header string is given, the default string
+ * is used containing the software, version, and date in it.  If a header
+ * string is given, at most the first 116 characters is written to the file.
+ * The given header string need not be the full 116 characters, but MUST be
+ * NULL terminated.
+ * @ingroup mat_internal
+ * @param matname Name of MAT file to create
+ * @param hdr_str Optional header string, NULL to use default
+ * @return A pointer to the MAT file or NULL if it failed.  This is not a
+ * simple FILE * and should not be used as one.
+ * @endif
+ */
+mat_t *
+Mat_CreateMem73(const char *matname, const char *hdr_str)
+{
+    FILE *fp = NULL;
+    mat_int16_t endian = 0, version;
+    mat_t *mat = NULL;
+    size_t err;
+    time_t t;
+    hid_t plist_id, fid, plist_ap;
+    herr_t h5err;
+
+    plist_id = H5Pcreate(H5P_FILE_CREATE);
+    H5Pset_userblock(plist_id, 512);
+    plist_ap = H5Pcreate(H5P_FILE_ACCESS);
+    // no backing store, 1M memory increment
+    h5err = H5Pset_fapl_core(plist_ap, 1024 * 1024, false);
+    if (h5err < 0) {
+        return NULL;
+    }
+#if H5_VERSION_GE(1, 10, 2)
+    H5Pset_libver_bounds(plist_ap, H5F_LIBVER_EARLIEST, H5F_LIBVER_V18);
+#endif
+    fid = H5Fcreate(matname, H5F_ACC_TRUNC, plist_id, plist_ap);
+    H5Fclose(fid);
+    H5Pclose(plist_id);
+
+#if defined(_WIN32) && defined(_MSC_VER) && H5_VERSION_GE(1, 11, 6)
+    {
+        wchar_t *wname = utf82u(matname);
+        if ( NULL != wname ) {
+            fp = _wfopen(wname, L"r+b");
+            free(wname);
+        }
+    }
+#else
+    fp = fopen(matname, "r+b");
+#endif
+    if ( !fp ) {
+        H5Pclose(plist_ap);
+        return NULL;
+    }
+
+    (void)fseek(fp, 0, SEEK_SET);
+
+    mat = (mat_t *)malloc(sizeof(*mat));
+    if ( mat == NULL ) {
+        fclose(fp);
+        H5Pclose(plist_ap);
+        return NULL;
+    }
+
+    mat->fp = NULL;
+    mat->header = NULL;
+    mat->subsys_offset = NULL;
+    mat->filename = NULL;
+    mat->version = 0;
+    mat->byteswap = 0;
+    mat->mode = 0;
+    mat->bof = 128;
+    mat->next_index = 0;
+    mat->num_datasets = 0;
+    mat->refs_id = -1;
+    mat->dir = NULL;
+
+    t = time(NULL);
+    mat->filename = strdup(matname);
+    mat->mode = MAT_ACC_RDWR;
+    mat->byteswap = 0;
+    mat->header = (char *)malloc(128 * sizeof(char));
+    mat->subsys_offset = (char *)malloc(8 * sizeof(char));
+    memset(mat->header, ' ', 128);
+    if ( hdr_str == NULL ) {
+        err = mat_snprintf(mat->header, 116,
+                           "MATLAB 7.3 MAT-file, Platform: %s, "
+                           "Created by: libmatio v%d.%d.%d on %s HDF5 schema 0.5",
+                           MATIO_PLATFORM, MATIO_MAJOR_VERSION, MATIO_MINOR_VERSION,
+                           MATIO_RELEASE_LEVEL, ctime(&t));
+    } else {
+        err = mat_snprintf(mat->header, 116, "%s", hdr_str);
+    }
+    if ( err >= 116 )
+        mat->header[115] = '\0'; /* Just to make sure it's NULL terminated */
+    memset(mat->subsys_offset, ' ', 8);
+    mat->version = (int)0x0200;
+    endian = 0x4d49;
+
+    version = 0x0200;
+
+    fwrite(mat->header, 1, 116, fp);
+    fwrite(mat->subsys_offset, 1, 8, fp);
+    fwrite(&version, 2, 1, fp);
+    fwrite(&endian, 2, 1, fp);
+
+    fclose(fp);
+
+    fid = H5Fopen(matname, H5F_ACC_RDWR, plist_ap);
+    H5Pclose(plist_ap);
+
+    mat->fp = malloc(sizeof(hid_t));
+    *(hid_t *)mat->fp = fid;
+
+    return mat;
+}
+
+/** @brief Gets the file image for the given MAT file
+ *
+ * Gets the file image for the given MAT file
+ * @ingroup MAT
+ * @param mat Pointer to the MAT file
+ * @return Pointer to file image
+ */
+const
+    void *Mat_GetMemImage73(mat_t *mat)
+{
+    herr_t err;
+    hid_t fid;
+
+    void *fileimage = NULL;
+    if ( NULL != mat ) {
+        fid = *(hid_t *)mat->fp;
+        err = H5Fflush(fid, H5F_SCOPE_GLOBAL);
+        if (err <= 0) return NULL;
+
+        ssize_t image_len = H5Fget_file_image(fid, NULL, (size_t)0);
+        if (image_len <= 0) return NULL;
+        fileimage = malloc(image_len);
+
+        ssize_t bytes_read = H5Fget_file_image(fid, fileimage, image_len);
+        if (bytes_read != image_len) {
+            free(fileimage);
+        }
+    }
+    return fileimage;
+}
+
+/** @if mat_devman
  * @brief Closes a MAT file
  *
  * @ingroup mat_internal
@@ -2634,6 +2786,8 @@ Mat_Close73(mat_t *mat)
         err = MATIO_E_FILESYSTEM_ERROR_ON_CLOSE;
     free(mat->fp);
     mat->fp = NULL;
+    free (mat->fileimage = NULL);
+    mat->fileimage = NULL;
     return err;
 }
 
