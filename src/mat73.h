@@ -46,5 +46,6 @@ EXTERN int Mat_VarWriteAppend73(mat_t *mat, matvar_t *matvar, int compress, int 
 
 // file image variants
 EXTERN mat_t *Mat_CreateMem73(const char *matname, const char *hdr_str);
-EXTERN const void *Mat_GetMemImage73(mat_t *mat);
+EXTERN int Mat_GetMemImage73(mat_t *mat);
+
 #endif

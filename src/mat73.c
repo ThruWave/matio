@@ -2695,6 +2695,7 @@ Mat_CreateMem73(const char *matname, const char *hdr_str)
     mat->next_index = 0;
     mat->num_datasets = 0;
     mat->refs_id = -1;
+    mat->fileimage = NULL;
     mat->dir = NULL;
 
     t = time(NULL);
@@ -2739,33 +2740,34 @@ Mat_CreateMem73(const char *matname, const char *hdr_str)
 
 /** @brief Gets the file image for the given MAT file
  *
- * Gets the file image for the given MAT file
+ * Gets the file image for the given MAT file (into mat_t.fileimage)
  * @ingroup MAT
  * @param mat Pointer to the MAT file
- * @return Pointer to file image
+ * @retval filesize, -1 on failure
  */
-const
-    void *Mat_GetMemImage73(mat_t *mat)
+int Mat_GetMemImage73(mat_t *mat)
 {
     herr_t err;
     hid_t fid;
+    int image_len, bytes_read;
 
-    void *fileimage = NULL;
+    mat->fileimage = NULL;
     if ( NULL != mat ) {
         fid = *(hid_t *)mat->fp;
         err = H5Fflush(fid, H5F_SCOPE_GLOBAL);
-        if (err <= 0) return NULL;
+        if (err <= 0) return -1;
 
-        ssize_t image_len = H5Fget_file_image(fid, NULL, (size_t)0);
-        if (image_len <= 0) return NULL;
-        fileimage = malloc(image_len);
+        image_len = H5Fget_file_image(fid, NULL, (size_t)0);
+        if (image_len <= 0) return -1;
+        mat->fileimage = malloc(image_len);
 
-        ssize_t bytes_read = H5Fget_file_image(fid, fileimage, image_len);
+        bytes_read = H5Fget_file_image(fid, mat->fileimage, image_len);
         if (bytes_read != image_len) {
-            free(fileimage);
+            free(mat->fileimage);
+            return -1;
         }
     }
-    return fileimage;
+    return image_len;
 }
 
 /** @if mat_devman
@@ -2786,7 +2788,7 @@ Mat_Close73(mat_t *mat)
         err = MATIO_E_FILESYSTEM_ERROR_ON_CLOSE;
     free(mat->fp);
     mat->fp = NULL;
-    free (mat->fileimage = NULL);
+    free (mat->fileimage);
     mat->fileimage = NULL;
     return err;
 }

@@ -486,9 +486,9 @@ Mat_CreateMem(const char *matname, const char *hdr_str, enum mat_ft mat_file_ver
  * @return Pointer to file image
  */
 const
-void *Mat_GetMemImage(mat_t *mat)
+int Mat_GetMemImage(mat_t *mat)
 {
-    if (mat->version != MAT_FT_MAT73) return NULL;
+    if (mat->version != MAT_FT_MAT73) return -1;
     return Mat_GetMemImage73(mat);
 }
 
