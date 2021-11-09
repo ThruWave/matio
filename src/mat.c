@@ -483,13 +483,13 @@ Mat_CreateMem(const char *matname, const char *hdr_str, enum mat_ft mat_file_ver
  * Gets the file image for the given MAT file
  * @ingroup MAT
  * @param mat Pointer to the MAT file
- * @return Pointer to file image
+ * @param filesize Pointer to file size
+ * @retval Pointer to file image
  */
-const
-int Mat_GetMemImage(mat_t *mat)
+void *Mat_GetMemImage(mat_t *mat, int *filesize)
 {
-    if (mat->version != MAT_FT_MAT73) return -1;
-    return Mat_GetMemImage73(mat);
+    if (mat->version != MAT_FT_MAT73) return NULL;
+    return Mat_GetMemImage73(mat, filesize);
 }
 
 /** @brief Opens an existing Matlab MAT file

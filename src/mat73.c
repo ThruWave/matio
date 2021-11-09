@@ -2743,9 +2743,10 @@ Mat_CreateMem73(const char *matname, const char *hdr_str)
  * Gets the file image for the given MAT file (into mat_t.fileimage)
  * @ingroup MAT
  * @param mat Pointer to the MAT file
- * @retval filesize, -1 on failure
+ * @param filesize Pointer to file size
+ * @retval Pointer to file image
  */
-int Mat_GetMemImage73(mat_t *mat)
+void *Mat_GetMemImage73(mat_t *mat, int *filesize)
 {
     herr_t err;
     hid_t fid;
@@ -2755,19 +2756,23 @@ int Mat_GetMemImage73(mat_t *mat)
     if ( NULL != mat ) {
         fid = *(hid_t *)mat->fp;
         err = H5Fflush(fid, H5F_SCOPE_GLOBAL);
-        if (err <= 0) return -1;
+        if (err <= 0) return NULL;
 
+        /* get the image length so we can allocate a buffer */
         image_len = H5Fget_file_image(fid, NULL, (size_t)0);
-        if (image_len <= 0) return -1;
+        if (image_len <= 0) return NULL;
         mat->fileimage = malloc(image_len);
 
+        /* copy the data into a buffer for access */
         bytes_read = H5Fget_file_image(fid, mat->fileimage, image_len);
         if (bytes_read != image_len) {
             free(mat->fileimage);
-            return -1;
+            mat->fileimage = NULL;
+            return NULL;
         }
+        *filesize = image_len;
     }
-    return image_len;
+    return mat->fileimage;
 }
 
 /** @if mat_devman
