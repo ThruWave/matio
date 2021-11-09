@@ -2746,11 +2746,11 @@ Mat_CreateMem73(const char *matname, const char *hdr_str)
  * @param filesize Pointer to file size
  * @retval Pointer to file image
  */
-void *Mat_GetMemImage73(mat_t *mat, int *filesize)
+void *Mat_GetMemImage73(mat_t *mat, size_t *filesize)
 {
     herr_t err;
     hid_t fid;
-    int image_len, bytes_read;
+    size_t image_len, bytes_read;
 
     mat->fileimage = NULL;
     if ( NULL != mat ) {
